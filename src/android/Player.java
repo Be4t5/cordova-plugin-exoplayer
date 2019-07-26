@@ -45,8 +45,17 @@ import com.squareup.picasso.*;
 import java.lang.*;
 import java.lang.Math;
 import java.lang.Override;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
+
 import org.apache.cordova.*;
 import org.json.*;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 public class Player {
     public static final String TAG = "ExoPlayerPlugin";
@@ -102,11 +111,13 @@ public class Player {
             new CallbackResponse(Player.this.callbackContext).send(PluginResult.Status.OK, payload, true);
         }
 
+
+
         @Override
         public void onRepeatModeChanged(int newRepeatMode) {
             // Need to see if we want to send this to Cordova.
         }
-    
+
         @Override
         public void onSeekProcessed() {
         }
@@ -253,6 +264,33 @@ public class Player {
         TrackSelector trackSelector = new DefaultTrackSelector();
         LoadControl loadControl = new DefaultLoadControl();
 
+      //Create a trust manager that does not validate certificate chains
+      TrustManager[] trustAllCerts = new TrustManager[] {
+        new X509TrustManager() {
+          public java.security.cert.X509Certificate[] getAcceptedIssuers()
+          {
+            return null;
+          }
+          public void checkClientTrusted(X509Certificate[] certs, String authType)
+          {
+            //
+          }
+          public void checkServerTrusted(X509Certificate[] certs, String authType)
+          {
+            //
+          }
+        }
+      };
+
+      //Install the all-trusting trust manager
+      try {
+        SSLContext sc = SSLContext.getInstance("TLS");
+        sc.init(null, trustAllCerts, new java.security.SecureRandom());
+        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+      } catch (KeyManagementException |NoSuchAlgorithmException e) {
+        e.printStackTrace();
+      }
+
         exoPlayer = ExoPlayerFactory.newSimpleInstance(this.activity, trackSelector, loadControl);
         exoPlayer.addListener(playerEventListener);
         if (null != exoView) {
@@ -277,7 +315,13 @@ public class Player {
         else {
             sendError("Failed to construct mediaSource for " + uri);
         }
+
+
+
+
     }
+
+
 
     private MediaSource getMediaSource(Uri uri, DefaultBandwidthMeter bandwidthMeter) {
         String userAgent = Util.getUserAgent(this.activity, config.getUserAgent());
@@ -432,5 +476,5 @@ public class Player {
         Log.e(TAG, msg);
         JSONObject payload = Payload.playerErrorEvent(Player.this.exoPlayer, null, msg);
         new CallbackResponse(Player.this.callbackContext).send(PluginResult.Status.ERROR, payload, true);
-    }   
+    }
 }
